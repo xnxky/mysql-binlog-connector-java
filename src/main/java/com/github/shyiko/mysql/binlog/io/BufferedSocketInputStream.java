@@ -44,8 +44,15 @@ public class BufferedSocketInputStream extends FilterInputStream {
 
     @Override
     public int read() throws IOException {
+        return this.readWithTime(null);
+    }
+
+    public int readWithTime(CurTime curTime) throws IOException {
         if (offset < limit) {
             return buffer[offset++] & 0xff;
+        }
+        if (curTime != null){
+            curTime.curTime = System.currentTimeMillis();
         }
         offset = 0;
         limit = in.read(buffer, 0, buffer.length);

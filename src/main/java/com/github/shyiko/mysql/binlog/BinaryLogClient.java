@@ -29,6 +29,7 @@ import com.github.shyiko.mysql.binlog.event.deserialization.EventDeserializer;
 import com.github.shyiko.mysql.binlog.event.deserialization.GtidEventDataDeserializer;
 import com.github.shyiko.mysql.binlog.event.deserialization.RotateEventDataDeserializer;
 import com.github.shyiko.mysql.binlog.io.ByteArrayInputStream;
+import com.github.shyiko.mysql.binlog.io.CurTime;
 import com.github.shyiko.mysql.binlog.jmx.BinaryLogClientMXBean;
 import com.github.shyiko.mysql.binlog.network.AuthenticationException;
 import com.github.shyiko.mysql.binlog.network.ServerException;
@@ -585,7 +586,8 @@ public class BinaryLogClient implements BinaryLogClientMXBean {
     private void listenForEventPackets() throws IOException {
         ByteArrayInputStream inputStream = channel.getInputStream();
         try {
-            while (inputStream.peek() != -1) {
+            CurTime curTime = new CurTime();
+            while (inputStream.peek(curTime) != -1) {
                 int packetLength = inputStream.readInteger(3);
                 inputStream.skip(1); // 1 byte for sequence
                 int marker = inputStream.read();
@@ -599,6 +601,7 @@ public class BinaryLogClient implements BinaryLogClientMXBean {
                     event = eventDeserializer.nextEvent(packetLength == MAX_PACKET_LENGTH ?
                         new ByteArrayInputStream(readPacketSplitInChunks(inputStream, packetLength - 1)) :
                         inputStream);
+                    event.setArriveTime(curTime.curTime);
                 } catch (Exception e) {
                     Throwable cause = e instanceof EventDataDeserializationException ? e.getCause() : e;
                     if (cause instanceof EOFException || cause instanceof SocketException) {
@@ -744,16 +747,18 @@ public class BinaryLogClient implements BinaryLogClientMXBean {
     }
 
     private void notifyEventListeners(Event event) {
+        Event newEvent = event;
         if (event.getData() instanceof EventDeserializer.EventDataWrapper) {
-            event = new Event(event.getHeader(), ((EventDeserializer.EventDataWrapper) event.getData()).getExternal());
+            newEvent = new Event(event.getHeader(), ((EventDeserializer.EventDataWrapper) event.getData()).getExternal());
+            newEvent.setArriveTime(event.getArriveTime());
         }
         synchronized (eventListeners) {
             for (EventListener eventListener : eventListeners) {
                 try {
-                    eventListener.onEvent(event);
+                    eventListener.onEvent(newEvent);
                 } catch (Exception e) {
                     if (logger.isLoggable(Level.WARNING)) {
-                        logger.log(Level.WARNING, eventListener + " choked on " + event, e);
+                        logger.log(Level.WARNING, eventListener + " choked on " + newEvent, e);
                     }
                 }
             }

@@ -171,8 +171,12 @@ public class ByteArrayInputStream extends InputStream {
     }
 
     public int peek() throws IOException {
+        return peek(null);
+    }
+
+    public int peek(CurTime curTime) throws IOException {
         if (peek == null) {
-            peek = readWithinBlockBoundaries();
+            peek = readWithinBlockBoundaries(curTime);
         }
         return peek;
     }
@@ -193,11 +197,18 @@ public class ByteArrayInputStream extends InputStream {
     }
 
     private int readWithinBlockBoundaries() throws IOException {
+        return readWithinBlockBoundaries(null);
+    }
+
+    private int readWithinBlockBoundaries(CurTime curTime) throws IOException {
         if (blockLength != -1) {
             if (blockLength == 0) {
                 return -1;
             }
             blockLength--;
+        }
+        if (inputStream instanceof BufferedSocketInputStream){
+            return ((BufferedSocketInputStream)inputStream).readWithTime(curTime);
         }
         return inputStream.read();
     }

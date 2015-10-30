@@ -24,10 +24,19 @@ public class Event implements Serializable {
 
     private EventHeader header;
     private EventData data;
+    private long arriveTime;
 
     public Event(EventHeader header, EventData data) {
         this.header = header;
         this.data = data;
+    }
+
+    public void setArriveTime(long arriveTime){
+        this.arriveTime = arriveTime;
+    }
+
+    public long getArriveTime(){
+        return arriveTime;
     }
 
     @SuppressWarnings("unchecked")
